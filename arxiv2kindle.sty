@@ -1,0 +1,29 @@
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{arxiv2kindle}[2026/07/03 layout tweaks for e-reader sized pages]
+
+% graphicx may or may not have been loaded by the paper itself
+\@ifpackageloaded{graphicx}{}{\RequirePackage{graphicx}}
+\RequirePackage{letltxmacro}
+
+% images with no explicit size shrink to the page width instead of
+% overflowing into the text
+\def\a@kmaxwidth{\ifdim\Gin@nat@width>\linewidth\linewidth\else\Gin@nat@width\fi}
+\setkeys{Gin}{width=\a@kmaxwidth,height=0.9\textheight,keepaspectratio}
+
+% measure every graphic after its options are applied: scale down anything
+% wider than the page; rotate very wide ones (> 1.6x the page width, which
+% would become unreadably small if merely scaled down) to landscape
+\newsavebox\a@kbox
+\LetLtxMacro\a@koldgfx\includegraphics
+\renewcommand{\includegraphics}[2][]{%
+  \sbox\a@kbox{\a@koldgfx[#1]{#2}}%
+  \ifdim\wd\a@kbox>1.6\linewidth%
+    \rotatebox{90}{\resizebox{0.88\textheight}{!}{\usebox\a@kbox}}%
+  \else\ifdim\wd\a@kbox>\linewidth%
+    \resizebox{\linewidth}{!}{\usebox\a@kbox}%
+  \else%
+    \usebox\a@kbox%
+  \fi\fi%
+}
+
+\endinput

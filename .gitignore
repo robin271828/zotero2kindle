@@ -1,0 +1,7 @@
+venv/
+**pycache**
+**.pdf
+.env
+.pixi/
+.DS_Store
+.sent_to_kindle.json
