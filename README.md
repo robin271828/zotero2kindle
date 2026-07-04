@@ -30,6 +30,7 @@ ZOTERO_TAG=kindle
 pixi run kindle zotero                             # send papers tagged 'kindle' in Zotero
 pixi run kindle zotero --dry-run                   # preview; --resend, -t <tag>
 pixi run kindle arxiv https://arxiv.org/abs/<id>   # convert + send directly (--no-send: convert only)
+                                                   # page/type options: -w 4 -h 6 -m 0.2 -f 10 -l
 pixi run kindle send <pdf> ...                     # email PDFs as-is
 pixi run preview <pdf>                             # open a PDF before sending
 ```

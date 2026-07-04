@@ -21,9 +21,10 @@ from zotero2kindle.tex import KindleTexTransformer, STY_FILE
 
 class Arxiv2KindleConverter:
 
-    def __init__(self, arxiv_url: str, is_landscape: bool) -> None:
+    def __init__(self, arxiv_url: str, is_landscape: bool, font_size: int = 10) -> None:
         self.arxiv_url = arxiv_url
         self.is_landscape = is_landscape
+        self.font_size = font_size
         self.check_prerequisite()
 
     def check_prerequisite(self):
@@ -62,18 +63,31 @@ class Arxiv2KindleConverter:
             if 'documentclass' in src[0]:
                 print('correct file: ' + texfile)
                 break
-        transformer = KindleTexTransformer(geometric_settings, self.is_landscape)
+        transformer = KindleTexTransformer(geometric_settings, self.is_landscape, self.font_size)
         src = transformer.transform(src)
         shutil.copy(STY_FILE, Path(texfile).parent)
         os.rename(texfile, texfile + '.bak')
         with open(texfile, 'w') as f:
             f.writelines(src)
-        # run pdflatex several times so cross-references resolve
-        for _ in range(3):
+
+        def pdflatex():
             subprocess.run(
                 ['pdflatex', '-interaction=nonstopmode', texfile],
                 stdout=sys.stderr, cwd=Path(texfile).parent
             )
+
+        base = Path(texfile).with_suffix('')
+        pdflatex()
+        # papers shipping a .bib database instead of a precompiled .bbl need
+        # bibtex/biber, otherwise citations render as question marks
+        aux = base.with_suffix('.aux')
+        if base.with_suffix('.bcf').exists():
+            subprocess.run(['biber', base.name], stdout=sys.stderr, cwd=base.parent)
+        elif aux.exists() and r'\bibdata' in aux.read_text(errors='ignore'):
+            subprocess.run(['bibtex', base.name], stdout=sys.stderr, cwd=base.parent)
+        # two more passes so citations and cross-references resolve
+        pdflatex()
+        pdflatex()
         return texfile[:-4] + '.pdf'
 
     def execute_pipeline(self, width: int, height: int, margin: float):

@@ -28,9 +28,9 @@ def safe_filename(name):
     return re.sub(r'[/\\:*?"<>|]', '-', name).strip()[:150]
 
 
-def convert_arxiv(url, width=4, height=6, margin=0.2, landscape=False):
+def convert_arxiv(url, width=4, height=6, margin=0.2, landscape=False, font_size=10):
     """Convert one arXiv paper, return the path of a nicely named PDF or None."""
-    converter = Arxiv2KindleConverter(url, landscape)
+    converter = Arxiv2KindleConverter(url, landscape, font_size)
     result = converter.execute_pipeline(width, height, margin)
     if not result:
         return None
@@ -51,15 +51,16 @@ def cli():
 @click.option('--height', '-h', default=6, help='Page height in inches')
 @click.option('--margin', '-m', default=0.2, help='Margin in inches')
 @click.option('--landscape', '-l', is_flag=True, help='Landscape output')
+@click.option('--font-size', '-f', default=10, help='Base font size in pt')
 @click.option('--send/--no-send', 'do_send', default=True,
               help='Email the result to the Kindle (default) or only convert')
-def arxiv(urls, width, height, margin, landscape, do_send):
+def arxiv(urls, width, height, margin, landscape, font_size, do_send):
     """Convert arXiv papers to Kindle-sized PDFs and send them."""
     if not 0. < margin < 1.:
         raise click.BadParameter('margin must be between 0 and 1 inch')
     pdfs = []
     for url in urls:
-        pdf = convert_arxiv(url, width, height, margin, landscape)
+        pdf = convert_arxiv(url, width, height, margin, landscape, font_size)
         if pdf is None:
             raise click.ClickException(f'Conversion failed: {url}')
         print(f'PDF File: {pdf}')
