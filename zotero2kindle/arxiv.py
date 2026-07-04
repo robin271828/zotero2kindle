@@ -16,7 +16,7 @@ from glob import glob
 import lxml.html as html
 from pathlib import Path
 
-from tex_transform import KindleTexTransformer, STY_FILE
+from zotero2kindle.tex import KindleTexTransformer, STY_FILE
 
 
 class Arxiv2KindleConverter:

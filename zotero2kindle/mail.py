@@ -1,6 +1,6 @@
 """Send PDFs to a Kindle via Gmail SMTP.
 
-Configuration is read from a .env file next to this script (see .env):
+Configuration is read from a .env file in the repo root (see README):
   GMAIL_ADDRESS       Gmail address to send from
   KINDLE_EMAIL        Send-to-Kindle address
   GMAIL_APP_PASSWORD  Gmail app password (https://myaccount.google.com/apppasswords)
@@ -19,6 +19,8 @@ import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.application import MIMEApplication
 
+from zotero2kindle import ROOT_DIR
+
 KEYCHAIN_SERVICE = 'arxiv2kindle'
 # Gmail rejects messages over 25MB; base64 encoding adds ~37%
 MAX_BATCH_BYTES = 17 * 1024 * 1024
@@ -27,7 +29,7 @@ MAX_BATCH_FILES = 25
 
 
 def load_dotenv():
-    env_file = Path(__file__).parent / '.env'
+    env_file = ROOT_DIR / '.env'
     if not env_file.exists():
         return
     for line in env_file.read_text().splitlines():

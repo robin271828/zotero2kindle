@@ -14,5 +14,5 @@ requests = "*"
 wget = "*"
 
 [tasks]
-kindle = "python kindle.py"
+kindle = "python -m zotero2kindle"
 preview = "open"

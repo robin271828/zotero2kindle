@@ -1,8 +1,8 @@
-"""Send papers to a Kindle - single entry point.
+"""Send papers to a Kindle - single entry point (python -m zotero2kindle).
 
-  kindle.py arxiv <url>...    convert arXiv papers to Kindle-sized PDFs and send them
-  kindle.py zotero            send papers tagged in Zotero (arXiv items get recompiled)
-  kindle.py send <pdf>...     send existing PDFs as-is
+  arxiv <url>...    convert arXiv papers to Kindle-sized PDFs and send them
+  zotero            send papers tagged in Zotero (arXiv items get recompiled)
+  send <pdf>...     send existing PDFs as-is
 
 Email configuration comes from .env (see README); already-sent Zotero items
 are tracked in .sent_to_kindle.json.
@@ -16,11 +16,12 @@ from pathlib import Path
 
 import click
 
-from arxiv2kindle import Arxiv2KindleConverter
-from send_to_kindle import load_dotenv, send_pdfs
-from zotero_client import zotero_get, find_arxiv_id, download_stored_pdf
+from zotero2kindle import ROOT_DIR
+from zotero2kindle.arxiv import Arxiv2KindleConverter
+from zotero2kindle.mail import load_dotenv, send_pdfs
+from zotero2kindle.zotero import zotero_get, find_arxiv_id, download_stored_pdf
 
-STATE_FILE = Path(__file__).parent / '.sent_to_kindle.json'
+STATE_FILE = ROOT_DIR / '.sent_to_kindle.json'
 
 
 def safe_filename(name):
