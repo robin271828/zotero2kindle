@@ -1,8 +1,12 @@
+"""Download an arXiv paper's LaTeX source and recompile it at Kindle page size.
+
+Based on Arxiv2Kindle by Soumik Rakshit (MIT,
+https://github.com/soumik12345/Arxiv2Kindle).
+"""
 import os
 import re
 import sys
 import wget
-import click
 import shutil
 import tarfile
 import tempfile
@@ -11,17 +15,8 @@ import subprocess
 from glob import glob
 import lxml.html as html
 from pathlib import Path
-from getpass import getpass
-
-import smtplib
-from email.mime.multipart import MIMEMultipart
-from email.mime.application import MIMEApplication
 
 from tex_transform import KindleTexTransformer, STY_FILE
-
-
-def delete_dir(dir_name):
-    subprocess.run(['rm', '-rf', dir_name])
 
 
 class Arxiv2KindleConverter:
@@ -43,7 +38,6 @@ class Arxiv2KindleConverter:
     def download_source(self):
         arxiv_id = re.match(r'((http|https)://.*?/)?(?P<id>\d{4}\.\d{4,5}(v\d{1,2})?)', self.arxiv_url).group('id')
         arxiv_abs = f'http://arxiv.org/abs/{arxiv_id}'
-        arxiv_pdf = f'http://arxiv.org/pdf/{arxiv_id}'
         arxiv_pgtitle = html.fromstring(
             requests.get(arxiv_abs).text.encode('utf8')).xpath('/html/head/title/text()')[0]
         arxiv_title = re.sub(r'\s+', ' ', re.sub(r'^\[[^]]+\]\s*', '', arxiv_pgtitle), re.DOTALL)
@@ -95,44 +89,7 @@ class Arxiv2KindleConverter:
         )
         try:
             pdf_file = self.process_tex(arxiv_dir, geometric_settings)
-            print(f'PDF File: {pdf_file}')
             return pdf_file, arxiv_id, arxiv_title
         except KeyError:
             print('Unable to create pdf file')
-            delete_dir(arxiv_dir)
-
-    def send_emai(self, pdf_file, arxiv_id, arxiv_title, gmail, kindle_mail):
-        msg = MIMEMultipart()
-        pdf_part = MIMEApplication(open(pdf_file, 'rb').read(), _subtype='pdf')
-        pdf_part.add_header(
-            'Content-Disposition', 'attachment',
-            filename=arxiv_id+"_" + arxiv_title + ".pdf")
-        msg.attach(pdf_part)
-        server = smtplib.SMTP('smtp.gmail.com', 587)
-        server.starttls()
-        gmail_password = getpass(prompt='Enter Gmail Password: ')
-        server.login(gmail, gmail_password)
-        server.sendmail(gmail, kindle_mail, msg.as_string())
-        server.close()
-
-
-@click.command()
-@click.option('--arxiv_url', '-u', help='Arxiv URL')
-@click.option('--width', '-w', default=4, help='Width')
-@click.option('--height', '-h', default=6, help='Height')
-@click.option('--margin', '-m', default=0.2, help='Margin')
-@click.option('--is_landscape', '-l', is_flag=True, help='Flag: Is output landscape')
-@click.option('--gmail', '-g', default=None, help='Your Gmail ID')
-@click.option('--kindle_mail', '-k', default=None, help='Your Kindle ID')
-def main(arxiv_url, width, height, margin, is_landscape, gmail, kindle_mail):
-    assert 0. < margin < 1.
-    converter = Arxiv2KindleConverter(arxiv_url, is_landscape)
-    pdf_file, arxiv_id, arxiv_title = converter.execute_pipeline(width, height, margin)
-    if gmail is not None and kindle_mail is not None:
-        print('Sending Email...')
-        converter.send_emai(pdf_file, arxiv_id, arxiv_title, gmail, kindle_mail)
-        print('Done')
-
-
-if __name__ == '__main__':
-    main()
+            shutil.rmtree(arxiv_dir, ignore_errors=True)

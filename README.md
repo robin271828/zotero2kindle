@@ -9,7 +9,7 @@ Zotero collection.
 ## How it works
 
 1. Tag papers in Zotero with `kindle` (or any tag you configure).
-2. `pixi run kindle-sync` fetches the tagged items via Zotero's local API.
+2. `pixi run kindle zotero` fetches the tagged items via Zotero's local API.
 3. Items with an arXiv ID (detected from the URL, Extra, or DOI field) get
    their LaTeX source downloaded and recompiled at e-reader page size:
    single column, fonts kept readable, oversized figures scaled down or
@@ -18,6 +18,9 @@ Zotero collection.
    Gmail's size limits allow.
 5. Sent items are recorded in `.sent_to_kindle.json`, so the next sync only
    sends new papers.
+
+Papers can also be sent directly from an arXiv URL without going through
+Zotero (`pixi run kindle arxiv <url>`).
 
 ## Requirements
 
@@ -45,23 +48,26 @@ is tried, then an interactive prompt.
 
 ## Usage
 
-```
-pixi run kindle-sync              # send everything newly tagged in Zotero
-pixi run kindle-sync --dry-run    # preview what would be sent
-pixi run kindle-sync --resend     # include already-sent items
-pixi run kindle-sync -t mytag     # use a different Zotero tag
-```
-
-The underlying steps are also available standalone:
+One CLI, three modes:
 
 ```
-pixi run convert -u https://arxiv.org/abs/<id>   # arXiv -> Kindle-sized PDF
-pixi run preview <pdf>                           # open a PDF before sending
-pixi run send <pdf> [<pdf> ...]                  # email PDFs to the Kindle
+pixi run kindle zotero                        # send everything newly tagged in Zotero
+pixi run kindle zotero --dry-run              # preview what would be sent
+pixi run kindle zotero --resend               # include already-sent items
+pixi run kindle zotero -t mytag               # use a different Zotero tag
+
+pixi run kindle arxiv https://arxiv.org/abs/<id>   # convert + send directly
+pixi run kindle arxiv <url> --no-send              # convert only
+pixi run kindle arxiv <url> -w 4 -h 6 -m 0.2 -l    # page size / margin / landscape
+
+pixi run kindle send <pdf> [<pdf> ...]        # email existing PDFs as-is
 ```
 
-`convert` accepts `-w/-h` (page size in inches, default 4x6), `-m` (margin)
-and `-l` (landscape).
+To inspect a converted PDF before sending:
+
+```
+pixi run preview <pdf>
+```
 
 ## Notes
 

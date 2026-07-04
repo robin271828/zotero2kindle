@@ -92,14 +92,3 @@ def send_pdfs(pdf_paths, gmail=None, kindle_mail=None):
         for path in batch:
             print(f'Sent {path.name} to {kindle_mail}')
 
-
-@click.command()
-@click.argument('pdf_paths', type=click.Path(exists=True), nargs=-1, required=True)
-@click.option('--gmail', '-g', default=None, help='Gmail address to send from (default: GMAIL_ADDRESS from .env)')
-@click.option('--kindle_mail', '-k', default=None, help='Send-to-Kindle address (default: KINDLE_EMAIL from .env)')
-def main(pdf_paths, gmail, kindle_mail):
-    send_pdfs(pdf_paths, gmail, kindle_mail)
-
-
-if __name__ == '__main__':
-    main()
