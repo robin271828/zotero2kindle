@@ -5,6 +5,14 @@ your Kindle. arXiv papers are recompiled from LaTeX source into single-column,
 Kindle-page-sized PDFs; other papers are sent as stored. The Zotero collection
 name becomes a `[Topic]` title prefix for grouping on the device.
 
+Every converted PDF is verified before it is sent: single-column layout,
+consistent fonts, no formulas/tables/figures cut off at the page edge, no
+unresolved `(?)` citations. If content is cut off, the paper is recompiled
+with progressively smaller display math, tighter tables, and narrower margins
+until it fits. Each check writes a visual HTML report (flagged pages rendered
+as images) to `reports/<paper>/report.html`; conversions that still fail
+verification are not sent.
+
 ## Requirements
 
 - [pixi](https://pixi.sh) (`pixi install` once) and `pdflatex` (e.g. MacTeX)
@@ -31,7 +39,9 @@ pixi run kindle zotero                             # send papers tagged 'kindle'
 pixi run kindle zotero --dry-run                   # preview; --resend, -t <tag>
 pixi run kindle arxiv https://arxiv.org/abs/<id>   # convert + send directly (--no-send: convert only)
                                                    # page/type options: -w 4 -h 6 -m 0.2 -f 10 -l
+                                                   # --force: send despite failed verification
 pixi run kindle send <pdf> ...                     # email PDFs as-is
+pixi run kindle check <pdf> ...                    # verify PDFs + visual report (-o opens it)
 pixi run preview <pdf>                             # open a PDF before sending
 ```
 

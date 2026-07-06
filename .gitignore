@@ -5,3 +5,4 @@ venv/
 .pixi/
 .DS_Store
 .sent_to_kindle.json
+reports/

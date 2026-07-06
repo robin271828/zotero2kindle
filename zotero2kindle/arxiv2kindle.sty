@@ -4,6 +4,21 @@
 % graphicx may or may not have been loaded by the paper itself
 \@ifpackageloaded{graphicx}{}{\RequirePackage{graphicx}}
 \RequirePackage{letltxmacro}
+% used by the overflow-remediation retries (\AtBeginEnvironment)
+\RequirePackage{etoolbox}
+\RequirePackage{environ}
+
+% long inline formulas may break at operators/relations instead of
+% running off the narrow page
+\binoppenalty=200
+\relpenalty=100
+
+% long URLs (footnotes, references) cannot be hyphenated and would run off
+% the narrow page; allow breaks at more characters and add stretch
+\@ifpackageloaded{url}{%
+  \Urlmuskip=0mu plus 2mu\relax
+  \g@addto@macro\UrlBreaks{\do\/\do\-\do\_\do\.\do\#\do\?\do\=\do\&}%
+}{}
 
 % images with no explicit size shrink to the page width instead of
 % overflowing into the text
@@ -25,5 +40,52 @@
     \usebox\a@kbox%
   \fi\fi%
 }
+
+% data tables get the same treatment as images: typeset the tabular into a
+% box and scale it down when it is wider than the page. Activated by the
+% remediation retries via \kindlefittables, and only inside table floats -
+% class title blocks build their author tables by calling \tabular
+% directly, which the environ-based capture cannot handle.
+\newsavebox\a@ktabbox
+\let\a@korigtabular\tabular
+\let\a@korigendtabular\endtabular
+\NewEnviron{a@kfittabular}[2][c]{%
+  \sbox\a@ktabbox{%
+    \let\tabular\a@korigtabular\let\endtabular\a@korigendtabular
+    \a@korigtabular[#1]{#2}\BODY\a@korigendtabular}%
+  \ifdim\wd\a@ktabbox>\linewidth
+    \resizebox{\linewidth}{!}{\usebox\a@ktabbox}%
+  \else
+    \usebox\a@ktabbox
+  \fi}
+\newcommand\kindlefittables{%
+  \AtBeginEnvironment{table}{%
+    \let\tabular\a@kfittabular
+    \let\endtabular\enda@kfittabular}}
+
+% conference styles (ICML, AISTATS, ...) check at \begin{document} that the
+% class page layout was not tampered with and typeset a complaint page
+% otherwise. Layouts are saved into named slots: the class layout is
+% snapshotted before our geometry is applied and handed back just before
+% \begin{document} so those checks pass; the Kindle layout is snapshotted
+% after \geometry and re-applied in the document body, after all
+% \AtBeginDocument hooks (including classes re-applying their own
+% geometry) have run. \newgeometry cannot be used for that: it restores
+% the layout captured when the geometry package was loaded.
+\def\a@ksnap#1#2{\expandafter\edef\csname a@k#1@#2\endcsname{\the\csname #2\endcsname}}
+\def\a@kback#1#2{\csname #2\endcsname=\csname a@k#1@#2\endcsname\relax}
+\def\a@klayoutdo#1#2{%
+  #1{#2}{oddsidemargin}#1{#2}{evensidemargin}#1{#2}{headheight}%
+  #1{#2}{textheight}#1{#2}{marginparsep}#1{#2}{footskip}#1{#2}{hoffset}%
+  #1{#2}{voffset}#1{#2}{paperwidth}#1{#2}{paperheight}#1{#2}{topmargin}%
+  #1{#2}{headsep}#1{#2}{textwidth}#1{#2}{marginparwidth}%
+  #1{#2}{marginparpush}#1{#2}{columnsep}}
+\newcommand\kindlesnapshotlayout[1]{\a@klayoutdo\a@ksnap{#1}}
+% the current page's column height was fixed before the restore ran, so
+% push the restored \textheight into the page builder as well
+\newcommand\kindlerestorelayout[1]{\a@klayoutdo\a@kback{#1}%
+  \pdfpagewidth=\paperwidth\pdfpageheight=\paperheight
+  \global\vsize=\textheight
+  \global\@colht=\textheight\global\@colroom=\textheight}
 
 \endinput

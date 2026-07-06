@@ -11,6 +11,7 @@ import json
 import os
 import re
 import shutil
+import subprocess
 import tempfile
 from pathlib import Path
 
@@ -19,24 +20,55 @@ import click
 from zotero2kindle import ROOT_DIR
 from zotero2kindle.arxiv import Arxiv2KindleConverter
 from zotero2kindle.mail import load_dotenv, send_pdfs
+from zotero2kindle.verify import verify_pdf, render_report, has_failures
 from zotero2kindle.zotero import zotero_get, find_arxiv_id, download_stored_pdf
 
 STATE_FILE = ROOT_DIR / '.sent_to_kindle.json'
+REPORTS_DIR = ROOT_DIR / 'reports'
 
 
 def safe_filename(name):
     return re.sub(r'[/\\:*?"<>|]', '-', name).strip()[:150]
 
 
-def convert_arxiv(url, width=4, height=6, margin=0.2, landscape=False, font_size=10):
-    """Convert one arXiv paper, return the path of a nicely named PDF or None."""
-    converter = Arxiv2KindleConverter(url, landscape, font_size)
-    result = converter.execute_pipeline(width, height, margin)
+def report_issues(pdf, issues):
+    """Print verification results plus a visual report; True when sendable."""
+    report = render_report(pdf, issues, REPORTS_DIR / Path(pdf).stem)
+    for issue in issues:
+        print(f'  {issue}')
+    if not issues:
+        print('  all checks passed')
+    print(f'  visual report: {report}')
+    return not has_failures(issues)
+
+
+def convert_arxiv(url, width=4, height=6, margin=0.2, landscape=False, font_size=10,
+                  force=False):
+    """Convert and verify one arXiv paper.
+
+    Returns the path of a nicely named PDF that passed verification,
+    otherwise None (conversion failed or the result would look broken
+    on the device - see the printed report for which). With force=True
+    a failed verification is reported but the PDF is still returned.
+    """
+    try:
+        converter = Arxiv2KindleConverter(url, landscape, font_size)
+        result = converter.execute_pipeline(width, height, margin)
+    except Exception as error:
+        print(f'Conversion crashed for {url}: {error}')
+        return None
     if not result:
         return None
-    pdf_file, arxiv_id, title = result
+    pdf_file, arxiv_id, title, issues = result
     named = Path(pdf_file).with_name(safe_filename(f'{arxiv_id}_{title}') + '.pdf')
     shutil.move(pdf_file, named)
+    print(f'Verifying: {named.name}')
+    if not report_issues(named, issues):
+        if not force:
+            print('  verification FAILED - not sending this conversion '
+                  '(check the report; --force sends anyway)')
+            return None
+        print('  verification FAILED - sending anyway (--force)')
     return named
 
 
@@ -54,19 +86,25 @@ def cli():
 @click.option('--font-size', '-f', default=10, help='Base font size in pt')
 @click.option('--send/--no-send', 'do_send', default=True,
               help='Email the result to the Kindle (default) or only convert')
-def arxiv(urls, width, height, margin, landscape, font_size, do_send):
+@click.option('--force', is_flag=True,
+              help='Keep/send PDFs even when verification fails')
+def arxiv(urls, width, height, margin, landscape, font_size, do_send, force):
     """Convert arXiv papers to Kindle-sized PDFs and send them."""
     if not 0. < margin < 1.:
         raise click.BadParameter('margin must be between 0 and 1 inch')
-    pdfs = []
+    pdfs, failed = [], []
     for url in urls:
-        pdf = convert_arxiv(url, width, height, margin, landscape, font_size)
+        pdf = convert_arxiv(url, width, height, margin, landscape, font_size, force)
         if pdf is None:
-            raise click.ClickException(f'Conversion failed: {url}')
+            failed.append(url)
+            continue
         print(f'PDF File: {pdf}')
         pdfs.append(pdf)
-    if do_send:
+    if do_send and pdfs:
         send_pdfs(pdfs)
+    if failed:
+        raise click.ClickException(
+            'conversion or verification failed for:\n  ' + '\n  '.join(failed))
 
 
 @cli.command()
@@ -110,6 +148,13 @@ def zotero(tag, dry_run, resend):
                 print(f'Conversion failed, falling back to stored PDF: {title}')
         if pdf is None:
             pdf = download_stored_pdf(item['key'], staging_dir)
+            if pdf is not None:
+                print(f'Checking stored PDF: {title}')
+                if not report_issues(pdf, verify_pdf(pdf)):
+                    print(f'  stored PDF would be hard to read on the Kindle - '
+                          f'skipping: {title}\n'
+                          f'  (use "kindle send" to send it anyway)')
+                    continue
         if pdf is None:
             print(f'No PDF available, skipping: {title}')
             continue
@@ -130,6 +175,24 @@ def zotero(tag, dry_run, resend):
 def send(pdf_paths, gmail, kindle_mail):
     """Send existing PDFs to the Kindle as-is."""
     send_pdfs(pdf_paths, gmail, kindle_mail)
+
+
+@cli.command()
+@click.argument('pdf_paths', type=click.Path(exists=True), nargs=-1, required=True)
+@click.option('--open', '-o', 'do_open', is_flag=True,
+              help='Open the visual report in the browser')
+def check(pdf_paths, do_open):
+    """Verify PDFs for Kindle-readability (layout, fonts, cut content, refs)."""
+    failed = []
+    for pdf in pdf_paths:
+        print(f'Checking: {pdf}')
+        ok = report_issues(pdf, verify_pdf(pdf))
+        if not ok:
+            failed.append(pdf)
+        if do_open:
+            subprocess.run(['open', REPORTS_DIR / Path(pdf).stem / 'report.html'])
+    if failed:
+        raise click.ClickException(f'{len(failed)} of {len(pdf_paths)} PDFs failed checks')
 
 
 if __name__ == '__main__':
